@@ -1,0 +1,197 @@
+// HerShield – AI-Powered Campus Safety Management System
+// Relational schema (SQLite for local development; switch provider to "postgresql" for production).
+// SQLite has no native enums, so enum-like fields are Strings validated by Zod in lib/validation.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Every account (students and campus security / admins).
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  /// STUDENT | ADMIN
+  role         String    @default("STUDENT")
+  /// Job title for admin / security staff
+  designation  String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  studentProfile StudentProfile?
+  contacts       EmergencyContact[]
+  incidents      Incident[]              @relation("ReportedIncidents")
+  statusChanges  IncidentStatusHistory[]
+  notifications  Notification[]
+
+  @@index([role])
+}
+
+/// Student-specific data (1:1 with User). Only what the system needs is stored.
+model StudentProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId            String   @unique
+  department           String?
+  batch                String?
+  /// Student explicitly consented to share device location with campus security
+  shareLocationConsent Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+/// Trusted contacts that receive SIMULATED alerts.
+model EmergencyContact {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  phone        String
+  relationship String
+  email        String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  notifications Notification[]
+
+  @@index([userId])
+}
+
+/// Lookup table of emergency categories.
+model IncidentCategory {
+  id           String     @id @default(cuid())
+  slug         String     @unique
+  name         String
+  description  String
+  /// lucide icon name used by the UI
+  icon         String
+  /// hex colour
+  color        String
+  /// CRITICAL | HIGH | MEDIUM | LOW – default severity of the category
+  basePriority String
+  responseTeam String
+  incidents    Incident[]
+}
+
+model Incident {
+  id               String           @id @default(cuid())
+  /// Human friendly unique ID, e.g. HS-1001
+  code             String           @unique
+  sequence         Int              @unique
+  title            String
+  description      String
+  categoryId       String
+  category         IncidentCategory @relation(fields: [categoryId], references: [id])
+  reporterId       String
+  reporter         User             @relation("ReportedIncidents", fields: [reporterId], references: [id], onDelete: Cascade)
+  locationText     String
+  occurredAt       DateTime
+  additionalNotes  String?
+  /// Priority the student felt the incident had (optional input)
+  reportedPriority String?
+  /// NONE | LOW | MODERATE | SEVERE
+  threatLevel      String           @default("NONE")
+  /// NONE | MINOR | SERIOUS | LIFE_THREATENING
+  injuryLevel      String           @default("NONE")
+  immediateDanger  Boolean          @default(false)
+  isSos            Boolean          @default(false)
+
+  /// Effective priority (classifier result, or admin override)
+  priority           String
+  /// Priority produced by the classification engine
+  aiPriority         String
+  aiScore            Int
+  /// JSON array of human readable classification reasons
+  aiReasons          String
+  recommendedAction  String
+  responseCategory   String
+  escalationLevel    String
+  /// Optional advisory note from an external AI API (if configured)
+  aiNote             String?
+  priorityOverridden Boolean @default(false)
+  overrideReason     String?
+
+  /// SUBMITTED | UNDER_REVIEW | DISPATCHED | IN_PROGRESS | RESOLVED | REJECTED
+  status     String    @default("SUBMITTED")
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  location      IncidentLocation?
+  statusHistory IncidentStatusHistory[]
+  notifications Notification[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([reporterId])
+  @@index([createdAt])
+}
+
+/// Coordinates shared for an incident (only visible to the reporter and admins).
+model IncidentLocation {
+  id         String   @id @default(cuid())
+  incidentId String   @unique
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  latitude   Float
+  longitude  Float
+  label      String?
+  /// GPS | MANUAL | MOCK
+  source     String
+  accuracy   Float?
+  sharedAt   DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Audit trail of every status change (and priority overrides).
+model IncidentStatusHistory {
+  id          String   @id @default(cuid())
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  fromStatus  String?
+  toStatus    String
+  note        String?
+  changedById String?
+  changedBy   User?    @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([incidentId])
+}
+
+/// Simulated notifications – nothing is ever sent outside the app.
+model Notification {
+  id             String            @id @default(cuid())
+  /// Student the notification belongs to
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentId     String?
+  incident       Incident?         @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  contactId      String?
+  contact        EmergencyContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  /// CONTACT_ALERT | STATUS_UPDATE | SYSTEM
+  type           String
+  /// SMS_SIMULATED | IN_APP
+  channel        String
+  recipientName  String
+  recipientPhone String?
+  title          String
+  message        String
+  /// DELIVERED | PENDING | FAILED  (simulated)
+  status         String            @default("DELIVERED")
+  isRead         Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  deliveredAt    DateTime?
+
+  @@index([userId])
+  @@index([incidentId])
+}

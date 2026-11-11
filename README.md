@@ -11,22 +11,24 @@ HerShield lets students report emergencies (one-tap SOS or detailed reports) and
 
 ## 1. Quick start
 
-Requirements: **Node.js 18.18+** (20 LTS recommended) and npm.
+Requirements: **Node.js 18.18+** (20 LTS recommended), npm, and a PostgreSQL database.
 
 ```bash
 # 1. install dependencies (also generates the Prisma client)
 npm install
 
-# 2. create the SQLite database and load demo data
+# 2. copy .env.example to .env and set DATABASE_URL, DIRECT_URL, and AUTH_SECRET
+
+# 3. create the database schema and load local demo data
 npm run setup
 
-# 3. start the app
+# 4. start the app
 npm run dev
 ```
 
 Open **http://localhost:3000**.
 
-A ready-to-use `.env` is included. To start fresh, copy `.env.example` to `.env` and set your own `AUTH_SECRET`.
+For local development, set `DATABASE_URL` and `DIRECT_URL` to your PostgreSQL connection string. In Vercel, set `DATABASE_URL` to the pooled connection string and `DIRECT_URL` to the direct connection string. The production build applies the Prisma schema; do not run `npm run setup` in production because it seeds demo data and clears existing rows.
 
 | Command | What it does |
 |---|---|
@@ -130,10 +132,10 @@ middleware.ts          Route protection & role-based redirects
 prisma/schema.prisma   Database schema · prisma/seed.ts demo data
 ```
 
-### Database (Prisma + SQLite)
+### Database (Prisma + PostgreSQL)
 
 `User` 1–1 `StudentProfile` · `User` 1–N `EmergencyContact` · `User` 1–N `Incident` · `IncidentCategory` 1–N `Incident` · `Incident` 1–1 `IncidentLocation` · `Incident` 1–N `IncidentStatusHistory` · `Incident` 1–N `Notification` · `EmergencyContact` 1–N `Notification`.
-All tables have primary keys, foreign keys with cascade rules, timestamps and indexes. To use PostgreSQL, change `provider` in `schema.prisma` and `DATABASE_URL`.
+All tables have primary keys, foreign keys with cascade rules, timestamps and indexes. The production build runs `prisma db push` to apply the schema using `DIRECT_URL`; runtime queries use `DATABASE_URL`.
 
 ### API routes
 
@@ -159,11 +161,11 @@ All tables have primary keys, foreign keys with cascade rules, timestamps and in
 
 ## 7. Tech stack
 
-Next.js 14 (App Router) · React 18 · TypeScript · Tailwind CSS (shadcn-style component kit) · Lucide icons · Framer Motion · Prisma ORM · SQLite · jose + bcryptjs · React-Leaflet + OpenStreetMap · Recharts · Zod.
+Next.js 14 (App Router) · React 18 · TypeScript · Tailwind CSS (shadcn-style component kit) · Lucide icons · Framer Motion · Prisma ORM · PostgreSQL · jose + bcryptjs · React-Leaflet + OpenStreetMap · Recharts · Zod.
 
 ## 8. Troubleshooting
 
-- **"The table does not exist"** → run `npm run setup`.
+- **"The table does not exist"** → configure `DIRECT_URL` and run `npm run db:push`.
 - **Map tiles not loading** → the map needs internet access to OpenStreetMap tile servers.
 - **Port in use** → `npm run dev -- -p 3001`.
 - **Reset everything** → delete `prisma/dev.db` and run `npm run setup`.

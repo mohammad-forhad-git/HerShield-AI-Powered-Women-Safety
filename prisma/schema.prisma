@@ -1,5 +1,4 @@
 // HerShield – AI-Powered Campus Safety Management System
-// Relational schema (SQLite for local development; switch provider to "postgresql" for production).
 // SQLite has no native enums, so enum-like fields are Strings validated by Zod in lib/validation.ts.
 
 generator client {
@@ -7,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 /// Every account (students and campus security / admins).

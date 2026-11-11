@@ -28,7 +28,7 @@ npm run dev
 
 Open **http://localhost:3000**.
 
-For local development, set `DATABASE_URL` and `DIRECT_URL` to your PostgreSQL connection string. In Vercel, set `DATABASE_URL` to the pooled connection string and `DIRECT_URL` to the direct connection string. The production build applies the Prisma schema; do not run `npm run setup` in production because it seeds demo data and clears existing rows.
+For local development, set `DATABASE_URL` and `DIRECT_URL` to your PostgreSQL connection string. In Vercel, set `DATABASE_URL` to the pooled connection string and `DIRECT_URL` to the direct connection string. Before the first deployment, apply the schema once with `npm run db:push` using the production `DIRECT_URL`. Vercel builds do not connect to or modify the database. Do not run `npm run setup` in production because it seeds demo data and clears existing rows.
 
 | Command | What it does |
 |---|---|
@@ -135,7 +135,7 @@ prisma/schema.prisma   Database schema · prisma/seed.ts demo data
 ### Database (Prisma + PostgreSQL)
 
 `User` 1–1 `StudentProfile` · `User` 1–N `EmergencyContact` · `User` 1–N `Incident` · `IncidentCategory` 1–N `Incident` · `Incident` 1–1 `IncidentLocation` · `Incident` 1–N `IncidentStatusHistory` · `Incident` 1–N `Notification` · `EmergencyContact` 1–N `Notification`.
-All tables have primary keys, foreign keys with cascade rules, timestamps and indexes. The production build runs `prisma db push` to apply the schema using `DIRECT_URL`; runtime queries use `DATABASE_URL`.
+All tables have primary keys, foreign keys with cascade rules, timestamps and indexes. Apply schema changes explicitly with `npm run db:push` using `DIRECT_URL`; runtime queries use `DATABASE_URL`.
 
 ### API routes
 

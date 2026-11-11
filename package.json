@@ -5,7 +5,7 @@
   "description": "HerShield – AI-Powered Campus Safety Management System (DIU SE331 Assessment 2 academic prototype)",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma db push && next build",
+    "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
